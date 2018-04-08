@@ -1,0 +1,93 @@
+- hosts: all
+  gather_facts: no
+
+  tasks:
+    # vim8 + vim-go
+    - block:
+      - get_url:
+          url: https://copr.fedorainfracloud.org/coprs/mcepl/vim8/repo/epel-7/mcepl-vim8-epel-7.repoi
+          dest: /etc/yum.repos.d/mcepl-vim8-epel-7.repo
+          mode: 0644
+          checksum: "sha256:a8a91ee1ed3b5eb3a8ef5f181052a1e354df1868d97fcdf711d92fb4cf0afcf2"
+        become: yes
+
+      - yum:
+          name: "{{ item }}"
+          state: present
+        become: yes
+        with_items:
+          - vim
+          - git
+
+      - shell: yum update -y vim-*
+        become: yes
+
+      - file:
+          path: ~/.vim
+          state: directory
+          mode: 0755
+
+      - git:
+          clone: yes
+          repo: https://github.com/VundleVim/Vundle.vim.git
+          dest: ~/.vim/bundle/Vundle.vim
+
+      - copy:
+          dest: ~/.vimrc
+          mode: 0644
+          content: |
+            set number
+            set nowrap
+            set rtp+=~/.vim/bundle/Vundle.vim
+            call vundle#begin()
+            Plugin 'VundleVim/Vundle.vim'
+            Plugin 'fatih/vim-go'
+            call vundle#end()
+            filetype plugin indent on
+            let g:go_fmt_command = "gofmt"
+            let g:go_fmt_autosave = 1
+            let g:go_highlight_functions = 1
+            let g:go_highlight_methods = 1
+            let g:go_highlight_structs = 1
+
+    # golang + acme sample code
+    - block:
+      - get_url:
+          url: https://storage.googleapis.com/golang/go1.10.1.linux-amd64.tar.gz
+          dest: /tmp/go1.10.1.linux-amd64.tar.gz
+          checksum: "sha256:72d820dec546752e5a8303b33b009079c15c2390ce76d67cf514991646c6127b"
+
+      - unarchive:
+          src: /tmp/go1.10.1.linux-amd64.tar.gz
+          dest: /usr/local
+          creates: /usr/local/go
+          remote_src: yes
+        become: yes
+
+      - file:
+          state: link
+          src: /usr/local/go/bin/go
+          dest: /usr/bin/go
+        become: yes
+
+      - lineinfile:
+          path: ~/.bashrc
+          regexp: "{{ item.regexp }}"
+          line: "{{ item.line }}"
+        with_items:
+          #- regexp: '^PATH=\$PATH:/usr/local/go/bin'
+          #  line: 'PATH=$PATH:/usr/local/go/bin'
+          - regexp: '^PATH=\$PATH:~/go/bin'
+            line: 'PATH=$PATH:~/go/bin'
+
+      - shell:
+          go get -u github.com/golang/dep/cmd/dep
+
+      - file:
+          path: ~/go/src/github.com/tmtk75/acme-autocert-sample
+          state: directory
+          mode: 0755
+
+      - copy:
+          src: ./main.go
+          dest: ~/go/src/github.com/tmtk75/acme-autocert-sample/main.go

@@ -1,0 +1,9 @@
+.*.swp
+certs
+vendor
+
+credentials.json
+.terraform
+terraform.*
+
+ssh-config
